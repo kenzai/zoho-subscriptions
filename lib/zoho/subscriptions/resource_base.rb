@@ -11,13 +11,13 @@ module Zoho
       class << self
         def inherited(resource)
           resource.configure do |config|
-            config.resource_name = resource.name.gsub("Zoho::Subscriptions::", "").underscore
+            config.resource_name = resource.name.gsub("Zoho::Subscriptions::", "").downcase
           end
         end
 
         def resource_attributes(*attribute_names)
           @attribute_names = attribute_names
-          attr_accessor *attribute_names
+          attr_accessor(*attribute_names)
         end
 
         def all(filter = {})
@@ -84,7 +84,7 @@ module Zoho
           end
         end
 
-        def custom_action(action_name, http_method:, send_params_through: :body)
+        def custom_action(action_name, http_method:, send_params_through: :body, collection: false)
           unless [:get, :post, :put, :delete].include? http_method
             raise ArgumentError, "unsupported HTTP method: #{http_method}"
           end
@@ -93,7 +93,7 @@ module Zoho
             raise ArgumentError, "unsupported params method: #{send_params_through}"
           end
 
-          define_method action_name do |**params|
+          method_block = Proc.new do |**params|
             formatted_params = if send_params_through == :body
                                  params.to_json
                                else
@@ -104,9 +104,19 @@ module Zoho
                                             "#{resource_path}/#{action_name}",
                                             send_params_through => formatted_params
 
-            new_attributes.each do |attribute_name, value|
-              public_send "#{attribute_name}=", value
+            if collection
+              new new_attributes
+            else
+              new_attributes.each do |attribute_name, value|
+                public_send "#{attribute_name}=", value
+              end
             end
+          end
+
+          if collection
+            define_singleton_method action_name, method_block
+          else
+            define_method action_name, method_block
           end
         end
 
