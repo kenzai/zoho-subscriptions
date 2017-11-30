@@ -176,6 +176,10 @@ module Zoho
       def resource_path
         "#{self.class.resource_path}/#{id}"
       end
+
+      def to_h
+        self.class.attribute_names.map { |a| [a, self.send(a)] }.to_h
+      end
     end
   end
 end
